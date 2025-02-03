@@ -1,0 +1,3 @@
+[submodule "Pico-Zig"]
+	path = Pico-Zig
+	url = git@github.com:ConnerTenn/Pico-Zig.git
