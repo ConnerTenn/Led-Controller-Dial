@@ -1,0 +1,11 @@
+
+build/
+zig-cache/
+zig-out/
+
+pico-sdk/
+pico-examples/
+
+.zig-cache/
+
+flake.nix
