@@ -23,13 +23,15 @@ export fn main() void {
 
     //== Setup Objects ==
     //LED controller
-    var ws2812 = WS2812.WS2812.create(hardware.gpio.Pin.create(0)) catch |err| {
-        stdio.print("Failed to initialize ws2812: {}", .{err});
+    stdio.print("Create Led Strip\n", .{});
+    var led_strip = library.led_strip.LedStrip(2).create(hardware.gpio.Pin.create(0)) catch |err| {
+        stdio.print("Failed to initialize led strip: {}", .{err});
         return;
     };
-    ws2812.init();
+    led_strip.init();
 
     //Motor
+    stdio.print("Create DutyCycle Sampler\n", .{});
     var duty_cycle_sampler = pico.library.duty_cycle.DutyCycle.create(hardware.gpio.Pin.create(19)) catch |err| {
         stdio.print("Error:{}\n", .{err});
         return;
@@ -37,12 +39,26 @@ export fn main() void {
     duty_cycle_sampler.init();
 
     //== Loop ==
+    stdio.print("== Loop ==\n", .{});
     while (true) {
         const hue = duty_cycle_sampler.readDutyCycle();
 
         const hsv = colour.HSV.create(hue, 1.0, 1.0);
+        const pixel_colour = WS2812.Pixel.fromRGB(colour.RGB.fromHSV(hsv), 0.0);
 
-        ws2812.putPixel(WS2812.Pixel.fromRGB(colour.RGB.fromHSV(hsv), 0.0));
+        stdio.print("Pixel: R:{} G:{} B:{} W:{}\r", .{
+            pixel_colour.rgbw.red,
+            pixel_colour.rgbw.green,
+            pixel_colour.rgbw.blue,
+            pixel_colour.rgbw.white,
+        });
+
+        for (led_strip.getFrontBuffer()) |*pixel| {
+            pixel.* = pixel_colour;
+        }
+
+        led_strip.render();
+
         csdk.sleep_ms(1);
     }
 

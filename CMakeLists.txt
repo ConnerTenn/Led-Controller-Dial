@@ -40,6 +40,6 @@ pico_generate_pio_header(${PROJECT_NAME} ${CMAKE_SOURCE_DIR}/Pico-Zig/library/ws
 add_library(zig_library STATIC IMPORTED)
 set_property(TARGET zig_library PROPERTY IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/zig-out/lib/lib${PROJECT_NAME}.a)
 
-target_link_libraries(${PROJECT_NAME} zig_library pico_stdlib hardware_spi hardware_pio)
+target_link_libraries(${PROJECT_NAME} zig_library pico_stdlib hardware_spi hardware_pio hardware_dma)
 
 pico_add_extra_outputs(${PROJECT_NAME})
