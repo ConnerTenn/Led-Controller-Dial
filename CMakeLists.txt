@@ -33,7 +33,7 @@ pico_enable_stdio_uart(${PROJECT_NAME} 0)
 pico_enable_stdio_usb(${PROJECT_NAME} 1)
 
 
-# pico_generate_pio_header(${PROJECT_NAME} ${CMAKE_SOURCE_DIR}/Pico-Zig/library/duty_cycle.pio)
+pico_generate_pio_header(${PROJECT_NAME} ${CMAKE_SOURCE_DIR}/Pico-Zig/library/duty_cycle.pio)
 pico_generate_pio_header(${PROJECT_NAME} ${CMAKE_SOURCE_DIR}/Pico-Zig/library/ws2812.pio)
 
 # Add libraries to the build

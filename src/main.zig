@@ -21,26 +21,35 @@ export fn main() void {
     csdk.sleep_ms(2000);
     stdio.print("== Led Controller ==\n", .{});
 
+    //== Setup Objects ==
+    //LED controller
     var ws2812 = WS2812.WS2812.create(hardware.gpio.Pin.create(0)) catch |err| {
         stdio.print("Failed to initialize ws2812: {}", .{err});
         return;
     };
     ws2812.init();
 
-    stdio.print("Put pixel\n", .{});
-    // ws2812.putPixel(WS2812.Pixel.create(0, 0, 255, 255));
+    //Motor
+    var duty_cycle_sampler = pico.library.duty_cycle.DutyCycle.create(hardware.gpio.Pin.create(19)) catch |err| {
+        stdio.print("Error:{}\n", .{err});
+        return;
+    };
+    duty_cycle_sampler.init();
 
-    // var toggle = true;
-    var hue: f32 = 0.0;
+    //== Loop ==
     while (true) {
-        // hardware.gpio.default_led.put(toggle);
-        // csdk.sleep_ms(200);
-        // toggle = !toggle;
+        const hue = duty_cycle_sampler.readDutyCycle();
 
         const hsv = colour.HSV.create(hue, 1.0, 1.0);
 
         ws2812.putPixel(WS2812.Pixel.fromRGB(colour.RGB.fromHSV(hsv), 0.0));
         csdk.sleep_ms(1);
-        hue += 0.001;
     }
+
+    // var toggle = true;
+    // while (true) {
+    //     hardware.gpio.default_led.put(toggle);
+    //     csdk.sleep_ms(200);
+    //     toggle = !toggle;
+    // }
 }
