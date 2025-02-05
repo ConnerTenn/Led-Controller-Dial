@@ -24,7 +24,7 @@ export fn main() void {
     //== Setup Objects ==
     //LED controller
     stdio.print("Create Led Strip\n", .{});
-    var led_strip = library.led_strip.LedStrip(2).create(hardware.gpio.Pin.create(0)) catch |err| {
+    var led_strip = library.led_strip.LedStrip(300).create(hardware.gpio.Pin.create(0)) catch |err| {
         stdio.print("Failed to initialize led strip: {}", .{err});
         return;
     };
@@ -53,13 +53,11 @@ export fn main() void {
             pixel_colour.rgbw.white,
         });
 
-        for (led_strip.getFrontBuffer()) |*pixel| {
+        for (led_strip.getBackBuffer()) |*pixel| {
             pixel.* = pixel_colour;
         }
 
         led_strip.render();
-
-        csdk.sleep_ms(1);
     }
 
     // var toggle = true;
