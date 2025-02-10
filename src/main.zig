@@ -14,7 +14,7 @@ export fn main() void {
     //Init prints
     _ = csdk.stdio_init_all();
 
-    hardware.gpio.default_led.init(hardware.gpio.Gpio.Config{
+    hardware.gpio.default_led.init(hardware.gpio.Pin.Config{
         .direction = .out,
     });
 
@@ -32,11 +32,70 @@ export fn main() void {
 
     //Motor
     stdio.print("Create DutyCycle Sampler\n", .{});
-    var duty_cycle_sampler = pico.library.duty_cycle.DutyCycle.create(hardware.gpio.Pin.create(19)) catch |err| {
+    var duty_cycle_sampler = pico.library.duty_cycle.DutyCycle.create(hardware.gpio.Pin.create(22)) catch |err| {
         stdio.print("Error:{}\n", .{err});
         return;
     };
     duty_cycle_sampler.init();
+
+    stdio.print("== Init Display ==\n", .{});
+    var display = pico.library.gu128x32.GU128x32.create(
+        hardware.gpio.Pin.create(18),
+        hardware.gpio.Pin.create(19),
+        hardware.gpio.Pin.create(16),
+        hardware.gpio.Pin.create(17),
+        hardware.gpio.Pin.create(20),
+        hardware.gpio.Pin.create(21),
+        .spi0,
+    );
+    display.init();
+    stdio.print("Done init\n", .{});
+
+    display.writeCommand(pico.library.gu128x32.GU128x32.DisplayOnOff{
+        .byte1 = .{
+            .layer_0 = .active,
+            .layer_1 = .active,
+        },
+        .byte2 = .{
+            .and_op = 0,
+            .xor_op = 0,
+            .gram_enable = .on,
+            .gram_invert = .normal,
+        },
+    });
+    display.writeCommand(pico.library.gu128x32.GU128x32.AddressModeSet{
+        .byte1 = .{
+            .increment_x = .increment,
+            .increment_y = .fixed,
+        },
+    });
+
+    // display.writeCommand(pico.library.gu128x32.GU128x32.DataWrite{
+    //     .byte1 = .{
+    //         .data = 0b10001011,
+    //     },
+    // });
+    for (0..128) |idx| {
+        display.writeCommand(pico.library.gu128x32.GU128x32.DataWrite{
+            .byte1 = .{
+                .data = @intCast(idx),
+            },
+        });
+    }
+    display.writeCommand(pico.library.gu128x32.GU128x32.DataWriteYAddress{
+        .byte1 = .{},
+        .byte2 = .{
+            .gram_y_addr = 1,
+        },
+    });
+    for (128..256) |idx| {
+        display.writeCommand(pico.library.gu128x32.GU128x32.DataWrite{
+            .byte1 = .{
+                .data = @intCast(idx),
+            },
+        });
+    }
+    // display.writeCommand(pico.library.gu128x32.GU128x32.AddressRead{});
 
     //== Loop ==
     stdio.print("== Loop ==\n", .{});
