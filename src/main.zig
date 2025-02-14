@@ -75,27 +75,36 @@ export fn main() void {
     //         .data = 0b10001011,
     //     },
     // });
-    for (0..128) |idx| {
-        display.writeCommand(pico.library.gu128x32.GU128x32.DataWrite{
-            .byte1 = .{
-                .data = @intCast(idx),
-            },
-        });
-    }
-    display.writeCommand(pico.library.gu128x32.GU128x32.DataWriteYAddress{
-        .byte1 = .{},
-        .byte2 = .{
-            .gram_y_addr = 1,
-        },
-    });
-    for (128..256) |idx| {
-        display.writeCommand(pico.library.gu128x32.GU128x32.DataWrite{
-            .byte1 = .{
-                .data = @intCast(idx),
-            },
-        });
-    }
+    // for (0..128) |idx| {
+    //     display.writeCommand(pico.library.gu128x32.GU128x32.DataWrite{
+    //         .byte1 = .{
+    //             .data = @intCast(idx),
+    //         },
+    //     });
+    // }
+    // display.writeCommand(pico.library.gu128x32.GU128x32.DataWriteYAddress{
+    //     .byte1 = .{},
+    //     .byte2 = .{
+    //         .gram_y_addr = 1,
+    //     },
+    // });
+    // for (128..256) |idx| {
+    //     display.writeCommand(pico.library.gu128x32.GU128x32.DataWrite{
+    //         .byte1 = .{
+    //             .data = @intCast(idx),
+    //         },
+    //     });
+    // }
     // display.writeCommand(pico.library.gu128x32.GU128x32.AddressRead{});
+    display.display_buffer.setPixel(0, 0, true);
+    display.display_buffer.setPixel(1, 0, true);
+    display.display_buffer.drawLine(1, 2, 126, 30, true);
+    display.display_buffer.display_buffer[1][5] = 0b00111110;
+    display.display_buffer.display_buffer[1][6] = 0b01010001;
+    display.display_buffer.display_buffer[1][7] = 0b01001001;
+    display.display_buffer.display_buffer[1][8] = 0b01000101;
+    display.display_buffer.display_buffer[1][9] = 0b00111110;
+    display.render();
 
     //== Loop ==
     stdio.print("== Loop ==\n", .{});
