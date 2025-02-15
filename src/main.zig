@@ -32,7 +32,7 @@ export fn main() void {
 
     //LED controller
     stdio.print("Create Led Strip\n", .{});
-    var led_strip = library.led_strip.LedStrip(300).create(hardware.gpio.Pin.create(9)) catch |err| {
+    var led_strip = library.led_strip.LedStrip(4).create(hardware.gpio.Pin.create(9)) catch |err| {
         stdio.print("Failed to initialize led strip: {}", .{err});
         return;
     };
@@ -103,15 +103,16 @@ export fn main() void {
     //     });
     // }
     // display.writeCommand(pico.library.gu128x32.GU128x32.AddressRead{});
-    display.display_buffer.setPixel(0, 0, true);
-    display.display_buffer.setPixel(1, 0, true);
-    display.display_buffer.drawLine(1, 2, 126, 30, true);
-    display.display_buffer.display_buffer[1][5] = 0b00111110;
-    display.display_buffer.display_buffer[1][6] = 0b01010001;
-    display.display_buffer.display_buffer[1][7] = 0b01001001;
-    display.display_buffer.display_buffer[1][8] = 0b01000101;
-    display.display_buffer.display_buffer[1][9] = 0b00111110;
-    display.render();
+    // display.display_buffer.setPixel(0, 0, true);
+    // display.display_buffer.setPixel(1, 0, true);
+    // display.display_buffer.drawLine(1, 2, 126, 30, true);
+    // display.display_buffer.display_buffer[1][5] = 0b00111110;
+    // display.display_buffer.display_buffer[1][6] = 0b01010001;
+    // display.display_buffer.display_buffer[1][7] = 0b01001001;
+    // display.display_buffer.display_buffer[1][8] = 0b01000101;
+    // display.display_buffer.display_buffer[1][9] = 0b00111110;
+    // display.display_buffer.print("R: {d: >3}", .{0}, 3, 0);
+    // display.render();
 
     //== Loop ==
     stdio.print("== Loop ==\n", .{});
@@ -121,7 +122,7 @@ export fn main() void {
         const hsv = colour.HSV.create(hue, 1.0, 1.0);
         const pixel_colour = WS2812.Pixel.fromRGB(colour.RGB.fromHSV(hsv), 0.0);
 
-        // stdio.print("Pixel: R:{} G:{} B:{} W:{}\r", .{
+        // stdio.print("Pixel: R:{d: >3} G:{d: >3} B:{d: >3} W:{d: >3}\r", .{
         //     pixel_colour.rgbw.red,
         //     pixel_colour.rgbw.green,
         //     pixel_colour.rgbw.blue,
@@ -133,6 +134,12 @@ export fn main() void {
         }
 
         led_strip.render();
+
+        display.display_buffer.print("R: {d: >3}", .{pixel_colour.rgbw.red}, 0, 0);
+        display.display_buffer.print("G: {d: >3}", .{pixel_colour.rgbw.green}, 1, 0);
+        display.display_buffer.print("B: {d: >3}", .{pixel_colour.rgbw.blue}, 2, 0);
+        display.display_buffer.print("W: {d: >3}", .{pixel_colour.rgbw.white}, 3, 0);
+        display.render();
     }
 
     // var toggle = true;
