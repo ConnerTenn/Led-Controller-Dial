@@ -22,9 +22,17 @@ export fn main() void {
     stdio.print("== Led Controller ==\n", .{});
 
     //== Setup Objects ==
+    //Buttons
+    const button_up = hardware.gpio.Pin.create(28);
+    _ = button_up; // autofix
+    const button_center = hardware.gpio.Pin.create(26);
+    _ = button_center; // autofix
+    const button_down = hardware.gpio.Pin.create(27);
+    _ = button_down; // autofix
+
     //LED controller
     stdio.print("Create Led Strip\n", .{});
-    var led_strip = library.led_strip.LedStrip(300).create(hardware.gpio.Pin.create(0)) catch |err| {
+    var led_strip = library.led_strip.LedStrip(300).create(hardware.gpio.Pin.create(9)) catch |err| {
         stdio.print("Failed to initialize led strip: {}", .{err});
         return;
     };
@@ -32,13 +40,13 @@ export fn main() void {
 
     //Motor
     stdio.print("Create DutyCycle Sampler\n", .{});
-    var duty_cycle_sampler = pico.library.duty_cycle.DutyCycle.create(hardware.gpio.Pin.create(22)) catch |err| {
+    var duty_cycle_sampler = pico.library.duty_cycle.DutyCycle.create(hardware.gpio.Pin.create(3)) catch |err| {
         stdio.print("Error:{}\n", .{err});
         return;
     };
     duty_cycle_sampler.init();
 
-    stdio.print("== Init Display ==\n", .{});
+    //Display
     var display = pico.library.gu128x32.GU128x32.create(
         hardware.gpio.Pin.create(18),
         hardware.gpio.Pin.create(19),
@@ -49,7 +57,6 @@ export fn main() void {
         .spi0,
     );
     display.init();
-    stdio.print("Done init\n", .{});
 
     display.writeCommand(pico.library.gu128x32.GU128x32.DisplayOnOff{
         .byte1 = .{
@@ -114,12 +121,12 @@ export fn main() void {
         const hsv = colour.HSV.create(hue, 1.0, 1.0);
         const pixel_colour = WS2812.Pixel.fromRGB(colour.RGB.fromHSV(hsv), 0.0);
 
-        stdio.print("Pixel: R:{} G:{} B:{} W:{}\r", .{
-            pixel_colour.rgbw.red,
-            pixel_colour.rgbw.green,
-            pixel_colour.rgbw.blue,
-            pixel_colour.rgbw.white,
-        });
+        // stdio.print("Pixel: R:{} G:{} B:{} W:{}\r", .{
+        //     pixel_colour.rgbw.red,
+        //     pixel_colour.rgbw.green,
+        //     pixel_colour.rgbw.blue,
+        //     pixel_colour.rgbw.white,
+        // });
 
         for (led_strip.getBackBuffer()) |*pixel| {
             pixel.* = pixel_colour;
