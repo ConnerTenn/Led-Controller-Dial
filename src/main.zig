@@ -10,6 +10,8 @@ const library = pico.library;
 const WS2812 = library.WS2812;
 const colour = library.colour;
 
+const LedController = @import("led_controller.zig").LedController;
+
 export fn main() void {
     //Init prints
     _ = csdk.stdio_init_all();
@@ -19,7 +21,7 @@ export fn main() void {
     });
 
     csdk.sleep_ms(2000);
-    stdio.print("== Led Controller ==\n", .{});
+    stdio.print("== Online ==\n", .{});
 
     //== Setup Objects ==
     //Buttons
@@ -112,50 +114,9 @@ export fn main() void {
         },
     });
 
-    // display.writeCommand(pico.library.gu128x32.GU128x32.DataWrite{
-    //     .byte1 = .{
-    //         .data = 0b10001011,
-    //     },
-    // });
-    // for (0..128) |idx| {
-    //     display.writeCommand(pico.library.gu128x32.GU128x32.DataWrite{
-    //         .byte1 = .{
-    //             .data = @intCast(idx),
-    //         },
-    //     });
-    // }
-    // display.writeCommand(pico.library.gu128x32.GU128x32.DataWriteYAddress{
-    //     .byte1 = .{},
-    //     .byte2 = .{
-    //         .gram_y_addr = 1,
-    //     },
-    // });
-    // for (128..256) |idx| {
-    //     display.writeCommand(pico.library.gu128x32.GU128x32.DataWrite{
-    //         .byte1 = .{
-    //             .data = @intCast(idx),
-    //         },
-    //     });
-    // }
-    // display.writeCommand(pico.library.gu128x32.GU128x32.AddressRead{});
-    // display.display_buffer.setPixel(0, 0, true);
-    // display.display_buffer.setPixel(1, 0, true);
-    // display.display_buffer.drawLine(1, 2, 126, 30, true);
-    // display.display_buffer.display_buffer[1][5] = 0b00111110;
-    // display.display_buffer.display_buffer[1][6] = 0b01010001;
-    // display.display_buffer.display_buffer[1][7] = 0b01001001;
-    // display.display_buffer.display_buffer[1][8] = 0b01000101;
-    // display.display_buffer.display_buffer[1][9] = 0b00111110;
+    //== Initialization ==
     display.display_buffer.print("Zeroing motor...", .{}, 0, 0);
     display.render();
-
-    for (0..200) |sample_idx| {
-        //Drive to the target angle
-        const target_angle = tau * @as(f32, @floatFromInt(sample_idx)) / 200.0;
-
-        motor.setTorque(1.0, 0.0, target_angle);
-        csdk.sleep_ms(10);
-    }
 
     const zeroMotor = struct {
         const dead_zone = 0.02;
@@ -164,7 +125,7 @@ export fn main() void {
         fn targetAngle(angle: f32, delta_time_s: f32) f32 {
             _ = delta_time_s; // autofix
             const delta_err = pico.math.deltaError(f32, angle, 0, tau);
-            stdio.print("angle: {d:.3}  delta_err: {d:.3}\n", .{ angle, delta_err });
+            // stdio.print("angle: {d:.3}  delta_err: {d:.3}\n", .{ angle, delta_err });
 
             if (@abs(delta_err) < dead_zone) {
                 zeroed = true;
@@ -182,49 +143,23 @@ export fn main() void {
     zeroMotor(&motor);
     motor.setTorque(1.0, 0.0, 0.0);
 
-    // var angle: f32 = 0;
-    // while (true) {
-    //     motor.setTorque(1.0, 0.0, angle);
-    //     angle += 0.0001 * tau;
-    //     csdk.sleep_ms(1);
-    // }
-
     display.display_buffer.clear();
     display.render();
 
-    //== Loop ==
-    stdio.print("== Loop ==\n", .{});
-    while (true) {
-        const hue = duty_cycle_sampler.readDutyCycle();
+    //== Led Controller ==
 
-        const hsv = colour.HSV.create(hue, 1.0, 1.0);
-        const pixel_colour = WS2812.Pixel.fromRGB(colour.RGB.fromHSV(hsv), 0.0);
+    stdio.print("== Led Controller ==\n", .{});
 
-        // stdio.print("Pixel: R:{d: >3} G:{d: >3} B:{d: >3} W:{d: >3}\r", .{
-        //     pixel_colour.rgbw.red,
-        //     pixel_colour.rgbw.green,
-        //     pixel_colour.rgbw.blue,
-        //     pixel_colour.rgbw.white,
-        // });
+    var led_controller = LedController(4).create(
+        display,
+        motor,
+        button_up,
+        button_center,
+        button_down,
+        led_strip,
+    );
 
-        for (led_strip.getBackBuffer()) |*pixel| {
-            pixel.* = pixel_colour;
-        }
-
-        led_strip.render();
-
-        // display.display_buffer.print("R: {d: >3}", .{pixel_colour.rgbw.red}, 0, 0);
-        // display.display_buffer.print("G: {d: >3}", .{pixel_colour.rgbw.green}, 1, 0);
-        // display.display_buffer.print("B: {d: >3}", .{pixel_colour.rgbw.blue}, 2, 0);
-        // display.display_buffer.print("W: {d: >3}", .{pixel_colour.rgbw.white}, 3, 0);
-        display.display_buffer.print("Hue: {d: <.3}", .{hsv.hue}, 0, 0);
-        display.display_buffer.print("B1:{s}  B2:{s}  B3:{s}", .{
-            if (!button_up.get()) "O" else "X",
-            if (!button_center.get()) "O" else "X",
-            if (!button_down.get()) "O" else "X",
-        }, 3, 0);
-        display.render();
-    }
+    led_controller.run();
 
     // var toggle = true;
     // while (true) {
