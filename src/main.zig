@@ -71,7 +71,7 @@ export fn main() void {
     csdk.gpio_set_function(13, csdk.GPIO_FUNC_PWM); //VH
     csdk.gpio_set_function(14, csdk.GPIO_FUNC_PWM); //WL
     csdk.gpio_set_function(15, csdk.GPIO_FUNC_PWM); //WH
-    var motor = pico.library.motor.Motor.create(
+    var motor = pico.library.motor.Motor(false).create(
         6,
         7,
         5,
@@ -131,10 +131,11 @@ export fn main() void {
                 zeroed = true;
                 return 0;
             }
+
             return -math.sign(delta_err) * 0.3;
         }
 
-        fn zeroMotor(motor_obj: *pico.library.motor.Motor) void {
+        fn zeroMotor(motor_obj: *pico.library.motor.Motor(false)) void {
             while (!zeroed) {
                 motor_obj.update(targetAngle);
             }

@@ -18,7 +18,7 @@ pub fn LedController(num_leds: comptime_int) type {
         const Self = @This();
 
         display: gu128x32.GU128x32,
-        motor: Motor,
+        motor: Motor(false),
         button_up: Pin,
         button_center: Pin,
         button_down: Pin,
@@ -37,7 +37,7 @@ pub fn LedController(num_leds: comptime_int) type {
 
         pub fn create(
             display: pico.library.gu128x32.GU128x32,
-            motor: Motor,
+            motor: Motor(false),
             button_up: Pin,
             button_center: Pin,
             button_down: Pin,
