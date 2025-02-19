@@ -78,20 +78,31 @@ pub fn LedController(num_leds: comptime_int) type {
         //== Control Functions ==
 
         fn controlHue(self: *Self) void {
-            self.hsv.hue = self.motor.sensor.getAngle() / math.tau;
+            self.hsv.hue = self.motor.getAngle() / math.tau;
 
-            self.display.display_buffer.print("Hue: {d: <.3}", .{self.hsv.hue}, 0, 0);
+            self.display.display_buffer.print("Hue: {d: <.3}", .{self.hsv.hue}, 1, 38);
             // stdio.print("Hue: {d: <.3}", .{self.hsv.hue});
 
-            const bar_position: u7 = @as(u7, @intFromFloat(pico.math.mod(
+            // const bar_position: u7 = @as(u7, @intFromFloat(pico.math.mod(
+            //     f32,
+            //     -self.hsv.hue * gu128x32.DisplayBuffer.num_columns,
+            //     gu128x32.DisplayBuffer.num_columns,
+            //     .euclidean,
+            // )));
+            const bar_position: u7 = @intFromFloat(pico.math.remap(
                 f32,
-                -self.hsv.hue * gu128x32.DisplayBuffer.num_columns,
-                gu128x32.DisplayBuffer.num_columns,
-                .euclidean,
-            )));
+                self.hsv.hue,
+                1.0,
+                0.0,
+                5,
+                gu128x32.DisplayBuffer.num_columns - 5,
+            ));
             // stdio.print("bar_position: {}", .{bar_position});
 
-            self.display.display_buffer.drawLine(bar_position, 1, bar_position, 31, true);
+            self.display.display_buffer.drawRectangle(4, 2, gu128x32.DisplayBuffer.num_columns - 1 - 4, 22, true);
+            self.display.display_buffer.drawLine(bar_position, 3, bar_position, 21, true);
+
+            self.display.display_buffer.print("R   Y   G   C   B   M   R", .{}, 3, 2);
         }
 
         fn controlDebug(self: *Self) void {
