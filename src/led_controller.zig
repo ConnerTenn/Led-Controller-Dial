@@ -40,9 +40,19 @@ pub fn LedController(num_leds: comptime_int) type {
 
         // control_mode: ControlModes = .debug,
         control_mode_sequence_idx: ?u32 = null,
+        prev_control_mode_sequence_idx: ?u32 = null,
         render_mode: enum {
             solid,
         } = .solid,
+        motor_mode: union(enum) {
+            passive,
+            target: struct {
+                target_angle: f32,
+            },
+            ratchet: struct {
+                number_gredations: u16,
+            },
+        } = .passive,
 
         pub fn create(
             display: pico.library.gu128x32.GU128x32,
@@ -66,6 +76,7 @@ pub fn LedController(num_leds: comptime_int) type {
             self.motor.setTorque(0.0, 0.0, 0);
 
             while (true) {
+                // == Setup ==
                 self.button_up.update();
                 self.button_center.update();
                 self.button_down.update();
@@ -81,6 +92,8 @@ pub fn LedController(num_leds: comptime_int) type {
                 // stdio.print("loop\n", .{});
                 self.display.display_buffer.clear();
 
+                // == Input Handling ==
+                self.prev_control_mode_sequence_idx = self.control_mode_sequence_idx;
                 if (self.button_up.justPressed()) {
                     if (self.control_mode_sequence_idx) |*control_mode_sequence_idx| {
                         control_mode_sequence_idx.* += 1;
@@ -100,6 +113,7 @@ pub fn LedController(num_leds: comptime_int) type {
                     }
                 }
 
+                // == Control Mode ==
                 // stdio.print("control mode\n", .{});
                 if (self.control_mode_sequence_idx) |control_mode_sequence_idx| {
                     const control_mode = control_mode_sequence[control_mode_sequence_idx];
@@ -112,6 +126,10 @@ pub fn LedController(num_leds: comptime_int) type {
                     self.controlDebug(dial_pos);
                 }
 
+                // == Drive Motor ==
+                self.motor.update(torqueFn, self);
+
+                // == Render ==
                 // stdio.print("render mode\n", .{});
                 switch (self.render_mode) {
                     .solid => self.renderSolid(),
@@ -126,14 +144,31 @@ pub fn LedController(num_leds: comptime_int) type {
         //== Control Functions ==
 
         fn controlHue(self: *Self, dial_pos: f32) void {
-            self.hsv.hue = dial_pos;
+            // On entrance to this mode
+            if (self.prev_control_mode_sequence_idx != self.control_mode_sequence_idx) {
+                self.motor_mode = .{ .target = .{
+                    .target_angle = pico.math.remap(
+                        f32,
+                        self.hsv.hue,
+                        0.0,
+                        1.0,
+                        math.tau,
+                        0.0,
+                    ),
+                } };
+            }
+
+            // Don't update the hue until the motor zeros out
+            if (self.motor_mode != .target) {
+                self.hsv.hue = dial_pos;
+            }
 
             self.display.display_buffer.print("Hue: {d: <.3}", .{self.hsv.hue}, 1, 38);
             // stdio.print("Hue: {d: <.3}", .{self.hsv.hue});
 
             const bar_position: u7 = @intFromFloat(pico.math.remap(
                 f32,
-                dial_pos,
+                self.hsv.hue,
                 0.0,
                 1.0,
                 5,
@@ -153,6 +188,20 @@ pub fn LedController(num_leds: comptime_int) type {
         }
 
         fn controlBrightness(self: *Self, dial_pos: f32) void {
+            // On entrance to this mode
+            if (self.prev_control_mode_sequence_idx != self.control_mode_sequence_idx) {
+                self.motor_mode = .{ .target = .{
+                    .target_angle = pico.math.remap(
+                        f32,
+                        self.brightness,
+                        0.0,
+                        1.0,
+                        (0.5 - 0.1) * math.tau,
+                        (-0.5 + 0.1) * math.tau,
+                    ),
+                } };
+            }
+
             var brightness: f32 = pico.math.remap(
                 f32,
                 pico.math.mod(f32, dial_pos - 0.5, 1.0, .euclidean),
@@ -164,11 +213,14 @@ pub fn LedController(num_leds: comptime_int) type {
 
             brightness = @min(@max(brightness, 0.0), 1.0);
 
-            self.brightness = brightness;
+            // Don't update the hue until the motor zeros out
+            if (self.motor_mode != .target) {
+                self.brightness = brightness;
+            }
 
             const bar_position: u7 = @intFromFloat(pico.math.remap(
                 f32,
-                brightness,
+                self.brightness,
                 0.0,
                 1.0,
                 3,
@@ -178,7 +230,7 @@ pub fn LedController(num_leds: comptime_int) type {
             self.display.display_buffer.drawRectangle(2, 2, 125, 22, true);
             self.display.display_buffer.fillRectangle(3, 3, bar_position, 21, true);
 
-            self.display.display_buffer.print("Brightness  {d: >6.1}%", .{brightness * 100.0}, 3, 2);
+            self.display.display_buffer.print("Brightness  {d: >6.1}%", .{self.brightness * 100.0}, 3, 2);
         }
 
         fn controlDebug(self: *Self, dial_pos: f32) void {
@@ -193,6 +245,35 @@ pub fn LedController(num_leds: comptime_int) type {
             if (self.button_up.state and self.button_center.state and self.button_down.state) {
                 self.control_mode_sequence_idx = 0;
             }
+        }
+
+        // == Motor Torque Function ==
+        fn torqueFn(angle: f32, delta_time_s: f32, ctx: ?*const anyopaque) f32 {
+            _ = delta_time_s; // autofix
+            var torque: f32 = 0.0;
+
+            const self: *Self = @constCast(@alignCast(@ptrCast(ctx)));
+            switch (self.motor_mode) {
+                .passive => {},
+                .target => |mode| {
+                    const deadzone = 0.01;
+
+                    const delta_error = pico.math.deltaError(f32, angle, mode.target_angle, tau);
+                    pico.stdio.print("target  dE:{d:.3}\n", .{delta_error});
+
+                    if (@abs(delta_error) < deadzone) {
+                        self.motor_mode = .passive;
+                    } else {
+                        // Ensure a minimum force is applied
+                        torque = -math.sign(delta_error) * @max(@abs(delta_error), 0.05);
+                    }
+                },
+                .ratchet => |mode| {
+                    _ = mode; // autofix
+                },
+            }
+
+            return torque;
         }
 
         //== Render Functions ==

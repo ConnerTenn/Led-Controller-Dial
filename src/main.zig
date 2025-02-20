@@ -122,7 +122,8 @@ export fn main() void {
         const dead_zone = 0.02;
         var zeroed = false;
 
-        fn targetAngle(angle: f32, delta_time_s: f32) f32 {
+        fn targetAngle(angle: f32, delta_time_s: f32, ctx: ?*const anyopaque) f32 {
+            _ = ctx; // autofix
             _ = delta_time_s; // autofix
             const delta_err = pico.math.deltaError(f32, angle, 0, tau);
             // stdio.print("angle: {d:.3}  delta_err: {d:.3}\n", .{ angle, delta_err });
@@ -137,7 +138,7 @@ export fn main() void {
 
         fn zeroMotor(motor_obj: *pico.library.motor.Motor(false)) void {
             while (!zeroed) {
-                motor_obj.update(targetAngle);
+                motor_obj.update(targetAngle, null);
             }
         }
     }.zeroMotor;
