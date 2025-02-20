@@ -20,11 +20,13 @@ pub fn LedController(num_leds: comptime_int) type {
         const ControlModes = enum {
             debug,
             hue,
-            brightness,
+            value,
+            saturation,
+            white,
         };
 
         const control_mode_sequence = [_]ControlModes{
-            .hue, .brightness,
+            .hue, .saturation, .value, .white,
         };
 
         display: gu128x32.GU128x32,
@@ -34,9 +36,8 @@ pub fn LedController(num_leds: comptime_int) type {
         button_down: Button,
         led_strip: LedStrip(num_leds),
 
-        hsv: colour.HSV = colour.HSV.create(0, 1.0, 0.5),
-        white: f32 = 0,
-        brightness: f32 = 1.0,
+        hsv: colour.HSV = colour.HSV.create(0.0, 1.0, 0.5),
+        white: f32 = 0.0,
 
         // control_mode: ControlModes = .debug,
         control_mode_sequence_idx: ?u32 = null,
@@ -120,7 +121,9 @@ pub fn LedController(num_leds: comptime_int) type {
                     const control_mode = control_mode_sequence[control_mode_sequence_idx];
                     switch (control_mode) {
                         .hue => self.controlHue(dial_pos),
-                        .brightness => self.controlBrightness(dial_pos),
+                        .value => self.controlValue(dial_pos),
+                        .saturation => self.controlSaturation(dial_pos),
+                        .white => self.controlWhite(dial_pos),
                         else => unreachable,
                     }
                 } else {
@@ -190,13 +193,13 @@ pub fn LedController(num_leds: comptime_int) type {
             self.display.display_buffer.print("R", .{}, 3, 120);
         }
 
-        fn controlBrightness(self: *Self, dial_pos: f32) void {
+        fn controlValue(self: *Self, dial_pos: f32) void {
             // On entrance to this mode
             if (self.prev_control_mode_sequence_idx != self.control_mode_sequence_idx) {
                 self.motor_mode = .{ .target = .{
                     .target_angle = pico.math.remap(
                         f32,
-                        self.brightness,
+                        self.hsv.value,
                         0.0,
                         1.0,
                         (0.5 - 0.1) * math.tau,
@@ -207,7 +210,7 @@ pub fn LedController(num_leds: comptime_int) type {
 
             // Don't update the hue until the motor zeros out
             if (self.motor_mode != .target) {
-                var brightness: f32 = pico.math.remap(
+                var value: f32 = pico.math.remap(
                     f32,
                     pico.math.mod(f32, dial_pos - 0.5, 1.0, .euclidean),
                     0.1,
@@ -216,26 +219,26 @@ pub fn LedController(num_leds: comptime_int) type {
                     1.0,
                 );
 
-                if (brightness > 1.05) {
-                    // self.motor.setTorque(0.0, (brightness - 1.0) * 10.0, self.motor.getAngle());
+                if (value > 1.05) {
+                    // self.motor.setTorque(0.0, (value - 1.0) * 10.0, self.motor.getAngle());
                     self.motor.setTorque(0.0, 1.0, self.motor.getAngle());
                     self.motor_mode = .manual;
-                } else if (brightness < -0.05) {
-                    // self.motor.setTorque(0.0, (brightness) * 10.0, self.motor.getAngle());
+                } else if (value < -0.05) {
+                    // self.motor.setTorque(0.0, (value) * 10.0, self.motor.getAngle());
                     self.motor.setTorque(0.0, -1.0, self.motor.getAngle());
                     self.motor_mode = .manual;
                 } else {
                     self.motor_mode = .passive;
                 }
 
-                brightness = @min(@max(brightness, 0.0), 1.0);
+                value = @min(@max(value, 0.0), 1.0);
 
-                self.brightness = brightness;
+                self.hsv.value = value;
             }
 
             const bar_position: u7 = @intFromFloat(pico.math.remap(
                 f32,
-                self.brightness,
+                self.hsv.value,
                 0.0,
                 1.0,
                 3,
@@ -245,7 +248,119 @@ pub fn LedController(num_leds: comptime_int) type {
             self.display.display_buffer.drawRectangle(2, 2, 125, 22, true);
             self.display.display_buffer.fillRectangle(3, 3, bar_position, 21, true);
 
-            self.display.display_buffer.print("Brightness  {d: >6.1}%", .{self.brightness * 100.0}, 3, 2);
+            self.display.display_buffer.print("Value  {d: >6.1}%", .{self.hsv.value * 100.0}, 3, 2);
+        }
+
+        fn controlSaturation(self: *Self, dial_pos: f32) void {
+            // On entrance to this mode
+            if (self.prev_control_mode_sequence_idx != self.control_mode_sequence_idx) {
+                self.motor_mode = .{ .target = .{
+                    .target_angle = pico.math.remap(
+                        f32,
+                        self.hsv.saturation,
+                        0.0,
+                        1.0,
+                        (0.5 - 0.1) * math.tau,
+                        (-0.5 + 0.1) * math.tau,
+                    ),
+                } };
+            }
+
+            // Don't update the hue until the motor zeros out
+            if (self.motor_mode != .target) {
+                var saturation: f32 = pico.math.remap(
+                    f32,
+                    pico.math.mod(f32, dial_pos - 0.5, 1.0, .euclidean),
+                    0.1,
+                    1.0 - 0.1,
+                    0.0,
+                    1.0,
+                );
+
+                if (saturation > 1.05) {
+                    self.motor.setTorque(0.0, 1.0, self.motor.getAngle());
+                    self.motor_mode = .manual;
+                } else if (saturation < -0.05) {
+                    self.motor.setTorque(0.0, -1.0, self.motor.getAngle());
+                    self.motor_mode = .manual;
+                } else {
+                    self.motor_mode = .passive;
+                }
+
+                saturation = @min(@max(saturation, 0.0), 1.0);
+
+                self.hsv.saturation = saturation;
+            }
+
+            const bar_position: u7 = @intFromFloat(pico.math.remap(
+                f32,
+                self.hsv.saturation,
+                0.0,
+                1.0,
+                3,
+                124,
+            ));
+
+            self.display.display_buffer.drawRectangle(2, 2, 125, 22, true);
+            self.display.display_buffer.fillRectangle(3, 3, bar_position, 21, true);
+
+            self.display.display_buffer.print("Saturation  {d: >6.1}%", .{self.hsv.saturation * 100.0}, 3, 2);
+        }
+
+        fn controlWhite(self: *Self, dial_pos: f32) void {
+            // On entrance to this mode
+            if (self.prev_control_mode_sequence_idx != self.control_mode_sequence_idx) {
+                self.motor_mode = .{ .target = .{
+                    .target_angle = pico.math.remap(
+                        f32,
+                        self.white,
+                        0.0,
+                        1.0,
+                        (0.5 - 0.1) * math.tau,
+                        (-0.5 + 0.1) * math.tau,
+                    ),
+                } };
+            }
+
+            // Don't update the hue until the motor zeros out
+            if (self.motor_mode != .target) {
+                var white: f32 = pico.math.remap(
+                    f32,
+                    pico.math.mod(f32, dial_pos - 0.5, 1.0, .euclidean),
+                    0.1,
+                    1.0 - 0.1,
+                    0.0,
+                    1.0,
+                );
+
+                if (white > 1.05) {
+                    self.motor.setTorque(0.0, 1.0, self.motor.getAngle());
+                    self.motor_mode = .manual;
+                } else if (white < -0.05) {
+                    self.motor.setTorque(0.0, -1.0, self.motor.getAngle());
+                    self.motor_mode = .manual;
+                } else {
+                    self.motor_mode = .passive;
+                }
+
+                white = @min(@max(white, 0.0), 1.0);
+
+                self.white = white;
+            }
+
+            const bar_position: u7 = @intFromFloat(pico.math.remap(
+                f32,
+                self.white,
+                0.0,
+                1.0,
+                3,
+                124,
+            ));
+
+            self.display.display_buffer.drawRectangle(2, 2, 125, 22, true);
+            self.display.display_buffer.fillRectangle(3, 3, bar_position, 21, true);
+
+            self.display.display_buffer.print("White  {d: >6.1}%", .{self.white * 100.0}, 3, 2);
         }
 
         fn controlDebug(self: *Self, dial_pos: f32) void {
@@ -296,9 +411,7 @@ pub fn LedController(num_leds: comptime_int) type {
         //== Render Functions ==
 
         fn renderSolid(self: *Self) void {
-            self.hsv.value = self.brightness;
-            const white = self.white * self.brightness;
-            const pixel_colour = WS2812.Pixel.fromRGB(colour.RGB.fromHSV(self.hsv), white);
+            const pixel_colour = WS2812.Pixel.fromRGB(colour.RGB.fromHSV(self.hsv), self.white);
 
             for (self.led_strip.getBackBuffer()) |*pixel| {
                 pixel.* = pixel_colour;
