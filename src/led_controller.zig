@@ -36,6 +36,7 @@ pub fn LedController(num_leds: comptime_int) type {
 
         hsv: colour.HSV = colour.HSV.create(0, 1.0, 0.5),
         white: f32 = 0,
+        brightness: f32 = 1.0,
 
         // control_mode: ControlModes = .debug,
         control_mode_sequence_idx: ?u32 = null,
@@ -152,9 +153,22 @@ pub fn LedController(num_leds: comptime_int) type {
         }
 
         fn controlBrightness(self: *Self, dial_pos: f32) void {
+            var brightness: f32 = pico.math.remap(
+                f32,
+                pico.math.mod(f32, dial_pos - 0.5, 1.0, .euclidean),
+                0.1,
+                1.0 - 0.1,
+                0.0,
+                1.0,
+            );
+
+            brightness = @min(@max(brightness, 0.0), 1.0);
+
+            self.brightness = brightness;
+
             const bar_position: u7 = @intFromFloat(pico.math.remap(
                 f32,
-                dial_pos,
+                brightness,
                 0.0,
                 1.0,
                 3,
@@ -164,7 +178,7 @@ pub fn LedController(num_leds: comptime_int) type {
             self.display.display_buffer.drawRectangle(2, 2, 125, 22, true);
             self.display.display_buffer.fillRectangle(3, 3, bar_position, 21, true);
 
-            self.display.display_buffer.print("Brightness  {d: >6.1}%", .{dial_pos * 100.0}, 3, 2);
+            self.display.display_buffer.print("Brightness  {d: >6.1}%", .{brightness * 100.0}, 3, 2);
         }
 
         fn controlDebug(self: *Self, dial_pos: f32) void {
@@ -184,7 +198,9 @@ pub fn LedController(num_leds: comptime_int) type {
         //== Render Functions ==
 
         fn renderSolid(self: *Self) void {
-            const pixel_colour = WS2812.Pixel.fromRGB(colour.RGB.fromHSV(self.hsv), self.white);
+            self.hsv.value = self.brightness;
+            const white = self.white * self.brightness;
+            const pixel_colour = WS2812.Pixel.fromRGB(colour.RGB.fromHSV(self.hsv), white);
 
             for (self.led_strip.getBackBuffer()) |*pixel| {
                 pixel.* = pixel_colour;
