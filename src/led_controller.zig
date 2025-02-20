@@ -51,6 +51,10 @@ pub fn LedController(num_leds: comptime_int) type {
             target: struct {
                 target_angle: f32,
             },
+            limit: struct {
+                lower: f32,
+                upper: f32,
+            },
             ratchet: struct {
                 number_gredations: u16,
             },
@@ -196,16 +200,18 @@ pub fn LedController(num_leds: comptime_int) type {
         fn controlValue(self: *Self, dial_pos: f32) void {
             // On entrance to this mode
             if (self.prev_control_mode_sequence_idx != self.control_mode_sequence_idx) {
-                self.motor_mode = .{ .target = .{
-                    .target_angle = pico.math.remap(
-                        f32,
-                        self.hsv.value,
-                        0.0,
-                        1.0,
-                        (0.5 - 0.1) * math.tau,
-                        (-0.5 + 0.1) * math.tau,
-                    ),
-                } };
+                self.motor_mode = .{
+                    .target = .{
+                        .target_angle = pico.math.remap(
+                            f32,
+                            self.hsv.value,
+                            0.0,
+                            1.0,
+                            (0.5 - 0.1) * math.tau, //Left
+                            (-0.5 + 0.1) * math.tau, //Right
+                        ),
+                    },
+                };
             }
 
             // Don't update the hue until the motor zeros out
@@ -219,17 +225,12 @@ pub fn LedController(num_leds: comptime_int) type {
                     1.0,
                 );
 
-                if (value > 1.05) {
-                    // self.motor.setTorque(0.0, (value - 1.0) * 10.0, self.motor.getAngle());
-                    self.motor.setTorque(0.0, 1.0, self.motor.getAngle());
-                    self.motor_mode = .manual;
-                } else if (value < -0.05) {
-                    // self.motor.setTorque(0.0, (value) * 10.0, self.motor.getAngle());
-                    self.motor.setTorque(0.0, -1.0, self.motor.getAngle());
-                    self.motor_mode = .manual;
-                } else {
-                    self.motor_mode = .passive;
-                }
+                self.motor_mode = .{
+                    .limit = .{
+                        .lower = pico.math.mod(f32, (-0.5 + 0.1) * math.tau, math.tau, .euclidean), //Right
+                        .upper = (0.5 - 0.1) * math.tau, //Left
+                    },
+                };
 
                 value = @min(@max(value, 0.0), 1.0);
 
@@ -254,16 +255,18 @@ pub fn LedController(num_leds: comptime_int) type {
         fn controlSaturation(self: *Self, dial_pos: f32) void {
             // On entrance to this mode
             if (self.prev_control_mode_sequence_idx != self.control_mode_sequence_idx) {
-                self.motor_mode = .{ .target = .{
-                    .target_angle = pico.math.remap(
-                        f32,
-                        self.hsv.saturation,
-                        0.0,
-                        1.0,
-                        (0.5 - 0.1) * math.tau,
-                        (-0.5 + 0.1) * math.tau,
-                    ),
-                } };
+                self.motor_mode = .{
+                    .target = .{
+                        .target_angle = pico.math.remap(
+                            f32,
+                            self.hsv.saturation,
+                            0.0,
+                            1.0,
+                            (0.5 - 0.1) * math.tau, //Left
+                            (-0.5 + 0.1) * math.tau, //Right
+                        ),
+                    },
+                };
             }
 
             // Don't update the hue until the motor zeros out
@@ -277,15 +280,12 @@ pub fn LedController(num_leds: comptime_int) type {
                     1.0,
                 );
 
-                if (saturation > 1.05) {
-                    self.motor.setTorque(0.0, 1.0, self.motor.getAngle());
-                    self.motor_mode = .manual;
-                } else if (saturation < -0.05) {
-                    self.motor.setTorque(0.0, -1.0, self.motor.getAngle());
-                    self.motor_mode = .manual;
-                } else {
-                    self.motor_mode = .passive;
-                }
+                self.motor_mode = .{
+                    .limit = .{
+                        .lower = pico.math.mod(f32, (-0.5 + 0.1) * math.tau, math.tau, .euclidean), //Right
+                        .upper = (0.5 - 0.1) * math.tau, //Left
+                    },
+                };
 
                 saturation = @min(@max(saturation, 0.0), 1.0);
 
@@ -310,16 +310,18 @@ pub fn LedController(num_leds: comptime_int) type {
         fn controlWhite(self: *Self, dial_pos: f32) void {
             // On entrance to this mode
             if (self.prev_control_mode_sequence_idx != self.control_mode_sequence_idx) {
-                self.motor_mode = .{ .target = .{
-                    .target_angle = pico.math.remap(
-                        f32,
-                        self.white,
-                        0.0,
-                        1.0,
-                        (0.5 - 0.1) * math.tau,
-                        (-0.5 + 0.1) * math.tau,
-                    ),
-                } };
+                self.motor_mode = .{
+                    .target = .{
+                        .target_angle = pico.math.remap(
+                            f32,
+                            self.white,
+                            0.0,
+                            1.0,
+                            (0.5 - 0.1) * math.tau, //Left
+                            (-0.5 + 0.1) * math.tau, //Right
+                        ),
+                    },
+                };
             }
 
             // Don't update the hue until the motor zeros out
@@ -333,15 +335,12 @@ pub fn LedController(num_leds: comptime_int) type {
                     1.0,
                 );
 
-                if (white > 1.05) {
-                    self.motor.setTorque(0.0, 1.0, self.motor.getAngle());
-                    self.motor_mode = .manual;
-                } else if (white < -0.05) {
-                    self.motor.setTorque(0.0, -1.0, self.motor.getAngle());
-                    self.motor_mode = .manual;
-                } else {
-                    self.motor_mode = .passive;
-                }
+                self.motor_mode = .{
+                    .limit = .{
+                        .lower = pico.math.mod(f32, (-0.5 + 0.1) * math.tau, math.tau, .euclidean), //Right
+                        .upper = (0.5 - 0.1) * math.tau, //Left
+                    },
+                };
 
                 white = @min(@max(white, 0.0), 1.0);
 
@@ -402,6 +401,35 @@ pub fn LedController(num_leds: comptime_int) type {
                 },
                 .ratchet => |mode| {
                     _ = mode; // autofix
+                },
+                .limit => |mode| {
+                    var delta_error: f32 = 0.0;
+                    const deadzone = 0.2;
+
+                    if (mode.lower < mode.upper) {
+                        if (angle > mode.upper + deadzone) {
+                            delta_error = mode.upper + deadzone - angle;
+                        } else if (angle < mode.lower - deadzone) {
+                            delta_error = mode.lower - deadzone - angle;
+                        }
+                    } else {
+                        // The lower is larger than the upper
+                        // This means null space must be outside of the bounds instead of within the bounds
+                        if (angle > mode.upper + deadzone and angle < mode.lower - deadzone) {
+                            const lower_delta_error = pico.math.deltaError(f32, angle, mode.lower - deadzone, tau);
+                            const upper_delta_error = pico.math.deltaError(f32, angle, mode.upper + deadzone, tau);
+                            // pico.stdio.print("lower dE:{d:.2}  upper dE:{d:.2}\n", .{ lower_delta_error, upper_delta_error });
+
+                            // Choose the closest error
+                            if (@abs(lower_delta_error) < @abs(upper_delta_error)) {
+                                delta_error = -lower_delta_error;
+                            } else {
+                                delta_error = -upper_delta_error;
+                            }
+                        }
+                    }
+
+                    torque = @min(@max(pico.math.remap(f32, delta_error, -0.3, 0.3, -1.0, 1.0), -1.0), 1.0);
                 },
             }
 
