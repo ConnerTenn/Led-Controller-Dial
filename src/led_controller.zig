@@ -372,6 +372,8 @@ pub fn LedController(num_leds: comptime_int) type {
                 if (!self.button_down.state) "O" else "X",
             }, 3, 0);
 
+            self.display.display_buffer.fillRectangle(100, 6, 103, 9, true);
+
             if (self.button_up.state and self.button_center.state and self.button_down.state) {
                 self.control_mode_sequence_idx = 0;
             }
