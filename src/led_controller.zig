@@ -50,6 +50,7 @@ pub fn LedController(num_leds: comptime_int) type {
             manual,
             target: struct {
                 target_angle: f32,
+                delay_timer: ?u64 = null,
             },
             limit: struct {
                 lower: f32,
@@ -385,18 +386,27 @@ pub fn LedController(num_leds: comptime_int) type {
             switch (self.motor_mode) {
                 .passive => {},
                 .manual => unreachable,
-                .target => |mode| {
-                    const deadzone = 0.01;
+                .target => |*mode| {
+                    // TODO: Use PID controller
+                    const deadzone = 0.02;
+
+                    if (mode.delay_timer == null) {
+                        // Set the timer to +10ms
+                        mode.delay_timer = csdk.get_absolute_time() + 10_000;
+                    }
 
                     const delta_error = pico.math.deltaError(f32, angle, mode.target_angle, tau);
                     pico.stdio.print("target  dE:{d:.3}\n", .{delta_error});
 
                     if (@abs(delta_error) < deadzone) {
-                        self.motor.setTorque(0.0, 0.0, 0.0);
-                        self.motor_mode = .passive;
+                        if (mode.delay_timer.? < csdk.get_absolute_time()) {
+                            self.motor.setTorque(0.0, 0.0, 0.0);
+                            self.motor_mode = .passive;
+                        }
                     } else {
                         // Ensure a minimum force is applied
                         torque = -math.sign(delta_error) * @max(@abs(delta_error), 0.05);
+                        mode.delay_timer = null;
                     }
                 },
                 .ratchet => |mode| {
