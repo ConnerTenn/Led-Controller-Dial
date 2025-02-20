@@ -46,6 +46,7 @@ pub fn LedController(num_leds: comptime_int) type {
         } = .solid,
         motor_mode: union(enum) {
             passive,
+            manual,
             target: struct {
                 target_angle: f32,
             },
@@ -127,7 +128,9 @@ pub fn LedController(num_leds: comptime_int) type {
                 }
 
                 // == Drive Motor ==
-                self.motor.update(torqueFn, self);
+                if (self.motor_mode != .manual) {
+                    self.motor.update(torqueFn, self);
+                }
 
                 // == Render ==
                 // stdio.print("render mode\n", .{});
@@ -202,19 +205,31 @@ pub fn LedController(num_leds: comptime_int) type {
                 } };
             }
 
-            var brightness: f32 = pico.math.remap(
-                f32,
-                pico.math.mod(f32, dial_pos - 0.5, 1.0, .euclidean),
-                0.1,
-                1.0 - 0.1,
-                0.0,
-                1.0,
-            );
-
-            brightness = @min(@max(brightness, 0.0), 1.0);
-
             // Don't update the hue until the motor zeros out
             if (self.motor_mode != .target) {
+                var brightness: f32 = pico.math.remap(
+                    f32,
+                    pico.math.mod(f32, dial_pos - 0.5, 1.0, .euclidean),
+                    0.1,
+                    1.0 - 0.1,
+                    0.0,
+                    1.0,
+                );
+
+                if (brightness > 1.05) {
+                    // self.motor.setTorque(0.0, (brightness - 1.0) * 10.0, self.motor.getAngle());
+                    self.motor.setTorque(0.0, 1.0, self.motor.getAngle());
+                    self.motor_mode = .manual;
+                } else if (brightness < -0.05) {
+                    // self.motor.setTorque(0.0, (brightness) * 10.0, self.motor.getAngle());
+                    self.motor.setTorque(0.0, -1.0, self.motor.getAngle());
+                    self.motor_mode = .manual;
+                } else {
+                    self.motor_mode = .passive;
+                }
+
+                brightness = @min(@max(brightness, 0.0), 1.0);
+
                 self.brightness = brightness;
             }
 
@@ -255,6 +270,7 @@ pub fn LedController(num_leds: comptime_int) type {
             const self: *Self = @constCast(@alignCast(@ptrCast(ctx)));
             switch (self.motor_mode) {
                 .passive => {},
+                .manual => unreachable,
                 .target => |mode| {
                     const deadzone = 0.01;
 
@@ -262,6 +278,7 @@ pub fn LedController(num_leds: comptime_int) type {
                     pico.stdio.print("target  dE:{d:.3}\n", .{delta_error});
 
                     if (@abs(delta_error) < deadzone) {
+                        self.motor.setTorque(0.0, 0.0, 0.0);
                         self.motor_mode = .passive;
                     } else {
                         // Ensure a minimum force is applied
